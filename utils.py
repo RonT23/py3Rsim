@@ -1,6 +1,6 @@
 import numpy as np
 
-# ----------------- Homogeneous Transform Utilities -----------------
+# ----------------- Homogeneous Transform Utilities -------------------
 def homogeneous_transform(DH_table_row):
     # Extract the DH parameters.
     a     = DH_table_row[0]
@@ -53,7 +53,6 @@ def Tra(axis, displacement):
     else:
         print("[ERROR] Tra : Invalid axis. Returning identity.")
     return T
-
 
 # ----------------- 5-th Order Polynomial Interpolation Utilities -----
 def poly5_interpolation(p0, v0, a0, pf, vf, af, tf):
@@ -133,7 +132,7 @@ def evaluate_poly5_acc(coeffs, t):
     b0, b1, b2, b3, b4, b5 = coeffs
     return (2 * b2 +  6 * b3 * t + 12 * b4 * t**2 + 20 * b5 * t**3)
 
-def generate_trajectory_5th_roder( waypoints, velocities, accelerations, position_limits, max_speed,  max_acceleration, tf, T):
+def generate_trajectory_5th_roder( waypoints, velocities, accelerations, position_limits, max_speed,  max_acceleration, tf_vector, T):
     """
     Given a list of waypoints, a list of velocities and a list of accelerations 
     to pass over each waypoint and the total time tf to perform on each segment 
@@ -142,10 +141,10 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
     :param velocities: list of velocities (each a 3-element list (vx,vy,vz))
     :param accelerations: list of accelerations (each a 3-element list (ax, ay, azz))
     :position_limits : list of a pair of limits for each coordinate ([min_x, max_x], [min_y, max_y], [min_z, max_z])
-    :max_speed       : the maximum velocity permited in means of magnitude (norm(V))
-    :max_acceleration: the maximum acceleration permited in means of magnitude (norm(a))
-    :param tf        : total time for the motion
-    :return          : list of waypoints and the velocities at each point if valid.
+    :max_speed       : the maximum velocity permited in means of magnitude (norm(V)) for each segment
+    :max_acceleration: the maximum acceleration permited in means of magnitude (norm(a)) for each segment
+    :param tf        : total time for the motion per segment
+    :return          : list of waypoints, velocities and accelerations at each point if valid.
     """
     is_valid = True
     x_lim, y_lim, z_lim = position_limits
@@ -154,10 +153,11 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
     velocity_out     = []
     acceleration_out = []
 
-    N = int(round(tf / T))  # number of points per segment
-
     # For each segment between waypoint k and k+1
     for k in range(len(waypoints) - 1):
+
+        tf = tf_vector[k]
+        
         x0, y0, z0 = waypoints[k]
         x1, y1, z1 = waypoints[k + 1]
 
@@ -176,6 +176,8 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
         seg_positions = []
         seg_vels      = []
         seg_accs      = []
+
+        N = int(round(tf / T))  # number of points per segment
 
         # Evaluate 0 <= t <= tf in increments of T
         for n in range(N):
@@ -208,7 +210,7 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
 
             speed = np.linalg.norm([vx, vy, vz])
 
-            if speed > max_speed:
+            if speed > max_speed[k]:
                 print(f"[WARNING] speed exceeded: {speed} at segment {k}, t={t}")
                 is_valid = False
 
@@ -221,7 +223,7 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
 
             acc_norm = np.linalg.norm([ax, ay, az])
 
-            if acc_norm > max_acceleration:
+            if acc_norm > max_acceleration[k]:
                 print(f"[WARNING] accel exceeded: {acc_norm} at segment {k}, t={t}")
                 is_valid = False
 
