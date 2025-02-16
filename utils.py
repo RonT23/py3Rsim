@@ -54,138 +54,13 @@ def Tra(axis, displacement):
         print("[ERROR] Tra : Invalid axis. Returning identity.")
     return T
 
-# ----------------- 3-rd Order Polynomial Interpolation Utilities ----
-def generate_trajectory_3rd_order(waypoints, velocities, position_limits, max_velocity, max_acceleration, tf, T):
-    """
-    Given a list of waypoints and a list of velocities to pass over each
-    waypoint and the total time tf to perform this motion with time interval 
-    of T is computes the successive positions and composes the trajectory.
-    :param waypoints : list of waypoints (each a 3-element list (x,y,z))
-    :param velocities: list of velocities (each a 3-element list (vx,vy,vz))
-    :position_limits : list of a pair of limits for each coordinate ([min_x, max_x], [min_y, max_y], [min_z, max_z])
-    :max_velocity    : the maximum velocity permited in means of magnitude (norm(V))
-    :max_acceleration: the maximum acceleration permited in means of magnitude (norm(a))
-    :param tf        : total time for the motion
-    :return          : list of waypoints and the velocities at each point if valid.
-    """
-    is_valid = True # If false then something is out of range!
-
-    x_lim, y_lim, z_lim = position_limits
-
-    # Log trajectory points and velocity for each point
-    trajectory_out   = []
-    velocity_out     = []
-    acceleration_out = []
-
-    N = round(tf / T) # The number of timesteps to generate
-
-    # iterate through all waypoints
-    for k in range(len(waypoints)-1):
-        x0, y0, z0 = waypoints[k]    # starting point on the trajectory
-        x1, y1, z1 = waypoints[k+1]  # final point on the trajectory
-        vx0, vy0, vz0 = velocities[k]    # initial velocity
-        vx1, vy1, vz1 = velocities[k+1]  # final velocity
-
-        # Find the cubic polynomial coefficients
-        a0x, a1x, a2x, a3x = poly3_interpollation(x0, vx0, x1, vx1, tf)
-        a0y, a1y, a2y, a3y = poly3_interpollation(y0, vy0, y1, vy1, tf)
-        a0z, a1z, a2z, a3z = poly3_interpollation(z0, vz0, z1, vz1, tf)
-
-        # compute the via points per time-step
-        for n in range(0, N):
-            x = evaluate_poly3(a0x, a1x, a2x, a3x, n * T)
-            y = evaluate_poly3(a0y, a1y, a2y, a3y, n * T)
-            z = evaluate_poly3(a0z, a1z, a2z, a3z, n * T)
-            
-            # Check if the positions computed are within the workspace of the robot
-            if x <= x_lim[0] or x >= x_lim[1]:
-                print(f"[WARNING] x is out of range: {x}")
-                is_valid = False
-                break
-            
-            if y <= y_lim[0] or y >= y_lim[1]:
-                print(f"[WARNING] y is out of range: {y}")
-                is_valid = False
-                break
-                
-            if z <= z_lim[0] or z >= z_lim[1]:
-                print(f"[WARNING] z is out of range: {z}")
-                is_valid = False
-                break
-
-            trajectory_out.append(np.array([x, y, z]))     
-
-        # Stop the first loop if the nedted ones are terminated with error
-        if not is_valid:
-            break
-
-    # compute the velocities per time step
-    for n in range(0, len(trajectory_out)-1):
-        xi, yi, zi = trajectory_out[n]
-        xf, yf, zf = trajectory_out[n+1]
-
-        vx = (xf - xi) / T
-        vy = (yf - yi) / T
-        vz = (zf - zi) / T
-        
-        mag_v = np.sqrt(vz**2 + vy**2 + vz**2)
-        if mag_v > max_velocity:
-            print(f"[WARNING] velocity is out of bound: ({vx}, {vy}, {vz}), |v| = {mag_v}")
-            is_valid = False
-            break
- 
-        velocity_out.append(np.array([vx, vy, vz]))
-
-    # compute the acceleration per time step
-    for n in range(0, len(velocity_out)-1):
-        vxi, vyi, vzi = velocity_out[n]
-        vxf, vyf, vzf = velocity_out[n+1]
-
-        ax = (vxf - vxi) / T
-        ay = (vyf - vyi) / T
-        az = (vzf - vzi) / T
-        
-        mag_a = np.sqrt(ax**2 + ay**2 + az**2)
-        if mag_a > max_acceleration:
-            print(f"[WARNING] acceleration is out of bound: ({ax}, {ay}, {az}), |a| = {mag_a}")
-            is_valid = False
-            break 
-
-        acceleration_out.append(np.array([ax, ay, az]))
-
-    return trajectory_out, velocity_out, acceleration_out, is_valid
-
-def poly3_interpollation(p0, v0, pf, vf, tf):
-    """
-    Compute the coefficients of a 3rd order polynomial interpolation
-    :param p0 : initial position (single coordinate)
-    :param v0 : initial velocity (single speed value)
-    :param pf : final position (single coordinate)
-    :param vf : final velocity (single speed value)
-    :param tf : total time for the motion
-    returns the computed coefficients of the polynomial
-    """
-    a0 = p0
-    a1 = v0
-    a2 = (3/tf**2) * (pf - p0) - (2/tf) * v0 - (1/tf) * vf 
-    a3 = -(2/tf**3) * (pf - p0) + (1/tf**2) * (v0 + vf)
-    return [a0, a1, a2, a3]
-
-def evaluate_poly3(a0, a1, a2, a3, t):
-    """
-    Evaluates the 3-rd order polynomial with coefficients
-    a0, a1, a2, a3 at time instant t. Returns the evaluated value.
-    """
-    return a0 + a1 * t + a2 * t**2 + a3 * t**3
-
 
 # ----------------- 5-th Order Polynomial Interpolation Utilities -----
-
 def poly5_interpolation(p0, v0, a0, pf, vf, af, tf):
     """
     Compute the coefficients of a 5th-order polynomial that satisfies:
     p(0)       = p0   ,   p(tf)       = pf
-    dot p'(0)  = v0   ,   dot p(tf)   = vf
+    dot p(0)   = v0   ,   dot p(tf)   = vf
     ddot p(0)  = a0   ,   ddot p (tf) = af
 
     :param p0: initial position
@@ -203,28 +78,28 @@ def poly5_interpolation(p0, v0, a0, pf, vf, af, tf):
     b1 = v0
     b2 = a0 / 2.0
 
-    # We have three unknowns: b3, b4, b5
-    # Derive them from the boundary conditions at t = tf for p, p', p''.
-    # p(tf)   = b0 + b1*tf + b2*tf^2 + b3*tf^3 + b4*tf^4 + b5*tf^5 = pf
-    # p'(tf)  = b1 + 2*b2*tf + 3*b3*tf^2 + 4*b4*tf^3 + 5*b5*tf^4   = vf
-    # p''(tf) = 2*b2 + 6*b3*tf + 12*b4*tf^2 + 20*b5*tf^3           = af
+    # three unknowns remain: b3, b4, b5
+    # they are computed from the boundary conditions at t = tf for p, dot p, ddot p
+    # p(tf)      = b0 + b1 * tf + b2 * tf^2 + b3 * tf^3 + b4 * tf^4 + b5 * tf^5       = pf
+    # dot p(tf)  = b1 + 2 * b2 * tf + 3 * b3 * tf^2 + 4 * b4 * tf^3 + 5 * b5 * tf^4   = vf
+    # ddot p(tf) = 2 * b2 + 6 * b3 * tf + 12 * b4 * tf^2 + 20 * b5 * tf^3             = af
 
     # Construct system of equations for [b3, b4, b5]
-    T2 = tf*tf
-    T3 = T2*tf
-    T4 = T3*tf
-    T5 = T4*tf
+    T2 = tf * tf
+    T3 = T2 * tf
+    T4 = T3 * tf
+    T5 = T4 * tf
 
     M = np.array([
-        [T3,    T4,     T5   ],
-        [3*T2,  4*T3,   5*T4 ],
-        [6*tf,  12*T2,  20*T3]
+        [T3    ,       T4,       T5],
+        [3 * T2,   4 * T3,   5 * T4],
+        [6 * tf,  12 * T2,  20 * T3]
     ], dtype=float)
 
     rhs = np.array([
-        pf - (b0 + b1*tf + b2*T2),         # p(tf)   - known part
-        vf - (b1 + 2*b2*tf),              # p'(tf)  - known part
-        af - (2*b2)                       # p''(tf) - known part
+        pf - (b0 + b1 * tf + b2 * T2),       
+        vf - (b1 + 2 * b2 * tf),             
+        af - (2 * b2)                      
     ], dtype=float)
 
     # Solve for b3, b4, b5
@@ -258,7 +133,7 @@ def evaluate_poly5_acc(coeffs, t):
     b0, b1, b2, b3, b4, b5 = coeffs
     return (2 * b2 +  6 * b3 * t + 12 * b4 * t**2 + 20 * b5 * t**3)
 
-def generate_trajectory_5th_roder( waypoints, velocities, accelerations, position_limits, max_velocity,  max_acceleration, tf, T):
+def generate_trajectory_5th_roder( waypoints, velocities, accelerations, position_limits, max_speed,  max_acceleration, tf, T):
     """
     Given a list of waypoints, a list of velocities and a list of accelerations 
     to pass over each waypoint and the total time tf to perform on each segment 
@@ -267,7 +142,7 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
     :param velocities: list of velocities (each a 3-element list (vx,vy,vz))
     :param accelerations: list of accelerations (each a 3-element list (ax, ay, azz))
     :position_limits : list of a pair of limits for each coordinate ([min_x, max_x], [min_y, max_y], [min_z, max_z])
-    :max_velocity    : the maximum velocity permited in means of magnitude (norm(V))
+    :max_speed       : the maximum velocity permited in means of magnitude (norm(V))
     :max_acceleration: the maximum acceleration permited in means of magnitude (norm(a))
     :param tf        : total time for the motion
     :return          : list of waypoints and the velocities at each point if valid.
@@ -311,7 +186,7 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
             y = evaluate_poly5(cy, t)
             z = evaluate_poly5(cz, t)
 
-            # check position limits
+            # check positioning limits
             if not (x_lim[0] <= x <= x_lim[1]):
                 print(f"[WARNING] x out of range: {x}")
                 is_valid = False
@@ -333,7 +208,7 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
 
             speed = np.linalg.norm([vx, vy, vz])
 
-            if speed > max_velocity:
+            if speed > max_speed:
                 print(f"[WARNING] speed exceeded: {speed} at segment {k}, t={t}")
                 is_valid = False
 
@@ -359,7 +234,7 @@ def generate_trajectory_5th_roder( waypoints, velocities, accelerations, positio
             seg_vels.pop()
             seg_accs.pop()
 
-        # Append to global arrays
+        # append to global arrays for output
         trajectory_out.extend(seg_positions)
         velocity_out.extend(seg_vels)
         acceleration_out.extend(seg_accs)
