@@ -4,26 +4,37 @@ import utils
 from robot_sim import *
 
 def main():
-    ###### USER DEFINITIONS BELLOW ###############
+    ###### USER PARAMETER DEFINITIONS BELLOW ###############
 
-    tf    = 4    # time per linear segment
-    dt    = 0.01 # time resolution
-    max_v = 4.0  # maximum permited velocity magnitude (m/s)
-    max_a = 10.0  # maximum permited acceleration magnitude (m/s^2)
+    tf    = 2     # time per linear segment, i.e. the total time from point i to point i + 1
+    dt    = 0.01  # time resolution, i.e. the sampling period from point to point
 
-    # User defined waypoints and velocities
+    max_v = 5.0   # maximum permited speed (m/s) for the end effector
+    max_a = 10.0  # maximum permited acceleration (m/s^2) for the end effector
+
+    # Define the path through waypoints
     waypoints = np.array([( 0.45, 0.1,  1.3),
                           ( 0.45, 0.45, 0.01), 
                           ( 0.45, 0.1,  1.3)
                         ])
+    
+    # For each waypoint provide the velocity with which the 
+    # robot will have at that particular point
     velocities = np.array([(0, 0, 0), 
                            (0, 0, 0), 
                            (0, 0, 0)])
+    
+    # For each waypoint provide the acceleration of the end effector at 
+    # that particular point
     accelerations = np.array([(0, 0, 0), 
                               (0, 0, 0), 
                               (0, 0, 0)])
-    ##############################################
     
+    ##########################################################
+    
+
+
+
     ####### DONT TOUCH THESE #####################
 
     # Creta the figures for the animation and graphs
@@ -34,34 +45,39 @@ def main():
     robot = robot3RSim(waypoints[0], ax3d)
 
     # Get the robot-specific limits that define its workspace
-    x_lim = robot.x_range
-    y_lim = robot.y_range
-    z_lim = robot.z_range
+    # and create the limits vector. Intrinsic to the robot constraints.
+    # However the paramters are updatable!
+    position_limis = [robot.x_range, 
+                      robot.y_range, 
+                      robot.z_range]
 
-    # create the limits vector
-    position_limis = [x_lim, 
-                      y_lim, 
-                      z_lim]
-
-    # Plot the waypoints 
+    # Plot the waypoints to the figure
     for point in waypoints:
         x, y, z = point
         ax3d.plot([x], [y], [z], 'ro', markersize=10, alpha=0.8)
 
-    # Generate a smooth trajectory using 3-rd order polynomial interpollation
-    #trajectory, velocity, acceleration, is_valid = utils.generate_trajectory_3rd_order(waypoints, velocities, position_limis, max_v, max_a, tf, dt)
-
     # Generate a smooth trajectory using 5-th order polynomial interpolation
     trajectory, velocity, acceleration, is_valid = utils.generate_trajectory_5th_roder(waypoints, velocities, accelerations, position_limis, max_v, max_a, tf, dt)
     
+    # in case the generated trajectory has violated constraints 
+    # then don't start the simulation, because it will not work!
     if(not is_valid):
         print("[ERROR] Invalid position!")
         exit(-1)
     
+    ####### SIMULATION CALL HERE ################################################
+
+    # Run the simulation
+    q1, q2, q3, px, py, pz, dq1, dq2, dq3, vx, vy, vz = robot.run(trajectory, dt)
+
+    #############################################################################
+  
+    # local buffers for the target data (generated from the generate_trajectory_5th_roder() function)
     tx, ty, tz    = [], [], []
     vtx, vty, vtz = [], [], []
     atx, aty, atz = [], [], []
 
+    # fill these buffers with actual data
     for position in trajectory:
         tx.append(position[0])
         ty.append(position[1])
@@ -77,10 +93,7 @@ def main():
         aty.append(acc[1])
         atz.append(acc[2])
 
-    # Run the simulation
-    q1, q2, q3, px, py, pz, dq1, dq2, dq3, vx, vy, vz = robot.run(trajectory, dt)
-
-    # Build a time vector
+    # Build a time vector based on the values of the simulated joints
     time_vector = np.arange(len(q1)) * dt
 
     _, axs1 = plt.subplots(2, 2, figsize=(12, 8))
