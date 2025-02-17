@@ -338,7 +338,7 @@ class robot3RSim():
         JL = np.array([
             [-self.__l3 * s1 * s23 + self.__l2 * s1 * s2, -self.__l3 * c1 * c23 - self.__l2 * c1 * c2, -self.__l3 * c1 * c23],
             [-self.__l3 * c1 * s23 - self.__l2 * c1 * s2, -self.__l3 * s1 * c23 - self.__l2 * s1 * c2, -self.__l3 * s1 * c23],
-            [            0.0                        , -self.__l3 * s23 - self.__l2 * s2          , -self.__l3 * s23     ]
+            [            0.0                            , -self.__l3 * s23 - self.__l2 * s2          , -self.__l3 * s23     ]
         ])
 
         # The angular velocity Jacobian.
