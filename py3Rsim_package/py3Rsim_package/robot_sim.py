@@ -472,9 +472,9 @@ class robot3RSim():
             q1, q2, q3 = self.inverse_kinematics(point)
             
             # Compute the joint speed
-            dq1 = (self.Q[0] - q1)/dt
-            dq2 = (self.Q[1] - q2)/dt
-            dq3 = (self.Q[2] - q3)/dt
+            dq1 = (q1 - self.Q[0])/dt
+            dq2 = (q2 - self.Q[1])/dt
+            dq3 = (q3 - self.Q[2])/dt
 
             # update the displacement state
             if self.update_q1(q1):

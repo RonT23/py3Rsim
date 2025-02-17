@@ -4,9 +4,9 @@ import numpy as np
 
 def task():
     # Define the path through waypoints
-    waypoints = np.array([( 0.45, 0.8,  1.2), 
-                          ( 0.45, 0.1,  0.5),
-                          ( 0.45, 0.1,  0.01)
+    waypoints = np.array([(0.45, 0.8,  1.2), 
+                          (0.45, 0.1,  0.5),
+                          (0.45, 0.1,  0.01)
                         ])
    
     # For each waypoint provide the velocity with which the 
